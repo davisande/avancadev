@@ -3,8 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 type Coupon struct {
@@ -15,13 +19,18 @@ type Coupons struct {
 	Coupon []Coupon
 }
 
+type StatusCoupon struct {
+	Valid   string
+	Invalid string
+}
+
 func (c Coupons) Check(code string) string {
 	for _, item := range c.Coupon {
 		if code == item.Code {
-			return "valid"
+			return statusCoupon.Valid
 		}
 	}
-	return "invalid"
+	return statusCoupon.Invalid
 }
 
 type Result struct {
@@ -29,6 +38,7 @@ type Result struct {
 }
 
 var coupons Coupons
+var statusCoupon StatusCoupon
 
 func main() {
 	coupon := Coupon{
@@ -36,6 +46,9 @@ func main() {
 	}
 
 	coupons.Coupon = append(coupons.Coupon, coupon)
+
+	statusCoupon.Valid = "valid"
+	statusCoupon.Invalid = "invalid"
 
 	http.HandleFunc("/", home)
 	http.ListenAndServe(":9092", nil)
@@ -47,11 +60,45 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 	result := Result{Status: valid}
 
+	resultSendEmail := makeHttpCall("http://localhost:9093", coupon)
+
+	if resultSendEmail.Status != "success" {
+		result.Status = statusCoupon.Invalid
+	}
+
 	jsonResult, err := json.Marshal(result)
 	if err != nil {
 		log.Fatal("Error converting json")
 	}
 
 	fmt.Fprintf(w, string(jsonResult))
+}
+
+func makeHttpCall(urlMicroservice string, coupon string) Result {
+
+	values := url.Values{}
+	values.Add("coupon", coupon)
+
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = 5
+
+	res, err := retryablehttp.PostForm(urlMicroservice, values)
+	if err != nil {
+		result := Result{Status: "Servidor fora do ar!"}
+		return result
+	}
+
+	defer res.Body.Close()
+
+	data, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Fatal("Error processing result")
+	}
+
+	result := Result{}
+
+	json.Unmarshal(data, &result)
+
+	return result
 
 }

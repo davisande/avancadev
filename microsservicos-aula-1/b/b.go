@@ -42,7 +42,6 @@ func home(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, string(jsonData))
 }
 
-
 func makeHttpCall(urlMicroservice string, coupon string) Result {
 
 	values := url.Values{}
