@@ -1,0 +1,19 @@
+version: '3'
+
+services: 
+  microservicea:
+    image: davisande/avancadev-microservice-a:latest
+    ports: 
+      - 9090:9090
+  microserviceb:
+    image: davisande/avancadev-microservice-b:latest
+    ports: 
+      - 9091:9091
+  microservicec:
+    image: davisande/avancadev-microservice-c:latest
+    ports: 
+      - 9092:9092
+  microserviced:
+    image: davisande/avancadev-microservice-d:latest
+    ports: 
+      - 9093:9093
